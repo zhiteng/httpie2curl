@@ -1,5 +1,7 @@
 # httpie2curl
 
+**English** · [简体中文](README.zh-CN.md)
+
 Turn an [HTTPie](https://httpie.io/) command into the equivalent `curl` command.
 
 ```console
