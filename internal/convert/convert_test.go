@@ -154,6 +154,21 @@ func TestConvert(t *testing.T) {
 	}
 }
 
+func TestWithDefaults(t *testing.T) {
+	opts := Options{Command: "http", WithDefaults: true}
+
+	// Without data HTTPie sends "Accept: */*", which matches curl's default, so
+	// the only thing to add is transparent decoding.
+	if got, want := line(t, opts, "pie.dev"), "curl --compressed http://pie.dev"; got != want {
+		t.Errorf("got  %s\nwant %s", got, want)
+	}
+
+	want := `curl --compressed -X POST -H 'Content-Type: application/json' -H 'Accept: application/json, */*;q=0.5' -d '{"a":"b"}' http://pie.dev/post`
+	if got := line(t, opts, "pie.dev/post", "a=b"); got != want {
+		t.Errorf("got  %s\nwant %s", got, want)
+	}
+}
+
 func TestUnsupportedOptionIsRecorded(t *testing.T) {
 	req, err := Parse([]string{"--session=dev", "pie.dev"}, Options{Command: "http"})
 	if err != nil {
@@ -161,6 +176,21 @@ func TestUnsupportedOptionIsRecorded(t *testing.T) {
 	}
 	if len(req.Unsupported) != 1 || req.Unsupported[0] != "--session=dev" {
 		t.Fatalf("Unsupported = %v, want [--session=dev]", req.Unsupported)
+	}
+}
+
+// A value-taking option curl cannot express must swallow its value, otherwise the
+// value would be mistaken for the URL and the conversion would be wrong.
+func TestUnsupportedOptionValueIsNotMistakenForURL(t *testing.T) {
+	req, err := Parse([]string{"--style", "solarized", "pie.dev"}, Options{Command: "http"})
+	if err != nil {
+		t.Fatalf("Parse error: %v", err)
+	}
+	if req.URL != "pie.dev" {
+		t.Errorf("URL = %q, want pie.dev", req.URL)
+	}
+	if len(req.Unsupported) != 1 || req.Unsupported[0] != "--style=solarized" {
+		t.Fatalf("Unsupported = %v, want [--style=solarized]", req.Unsupported)
 	}
 }
 
@@ -198,8 +228,15 @@ func TestMultiline(t *testing.T) {
 
 	body := strings.Repeat("x", 40)
 	long := []string{"curl", "-H", "Content-Type: application/json", "-d", body, "http://pie.dev/post"}
-	want := "curl -H 'Content-Type: application/json' -d \\\n  " + body + " \\\n  http://pie.dev/post"
+	want := "curl -H 'Content-Type: application/json' \\\n  -d " + body + " http://pie.dev/post"
 	if got := Command(long, true); got != want {
 		t.Errorf("long = %q, want %q", got, want)
+	}
+
+	// A flag must never be separated from its value by a line break.
+	headers := []string{"curl", "-X", "POST", "-H", "Accept: application/json, */*;q=0.5", "-H", "Authorization: Bearer TOKEN", "http://pie.dev/post"}
+	wantHeaders := "curl -X POST -H 'Accept: application/json, */*;q=0.5' \\\n  -H 'Authorization: Bearer TOKEN' http://pie.dev/post"
+	if got := Command(headers, true); got != wantHeaders {
+		t.Errorf("headers = %q, want %q", got, wantHeaders)
 	}
 }

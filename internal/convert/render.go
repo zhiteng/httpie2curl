@@ -65,6 +65,11 @@ func Render(r *Request, opts Options) ([]string, []string, error) {
 	if r.Stream {
 		argv = append(argv, "-N")
 	}
+	if opts.WithDefaults {
+		// HTTPie asks for gzip/deflate and decodes the response itself; curl
+		// only does both with --compressed.
+		argv = append(argv, "--compressed")
+	}
 	if r.Output != "" {
 		argv = append(argv, "-o", r.Output)
 	}
@@ -93,12 +98,10 @@ func Render(r *Request, opts Options) ([]string, []string, error) {
 	}
 	// HTTPie sets Accept alongside Content-Type whenever it serializes data as
 	// JSON, so the converted command must set it too: curl would otherwise send
-	// its own "Accept: */*".
-	if r.acceptJSON || opts.WithDefaults || (mode == ModeJSON && hasData) {
+	// its own "Accept: */*". Without data HTTPie also sends "Accept: */*", which
+	// already matches curl's default, so nothing is emitted.
+	if r.acceptJSON || (mode == ModeJSON && hasData) {
 		argv = append(argv, "-H", "Accept: application/json, */*;q=0.5")
-	}
-	if opts.WithDefaults {
-		argv = append(argv, "-H", "Accept-Encoding: gzip, deflate")
 	}
 
 	// Headers render in place; body items are collected to stay in input order.

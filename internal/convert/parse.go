@@ -164,7 +164,25 @@ func (r *Request) option(args []string, i *int, tok string) error {
 		}
 	default:
 		// An HTTPie option curl cannot express, or one we do not know yet.
-		r.Unsupported = append(r.Unsupported, tok)
+		rec := tok
+		if !hasValue && unsupportedTakesValue[name] && *i+1 < len(args) && !strings.HasPrefix(args[*i+1], "-") {
+			// Consume the value too, or it would be mistaken for the URL.
+			*i++
+			rec = name + "=" + args[*i]
+		}
+		r.Unsupported = append(r.Unsupported, rec)
 	}
 	return err
+}
+
+// unsupportedTakesValue lists HTTPie options that have no curl equivalent but do
+// take a value, so the parser can consume that value instead of treating it as
+// the URL. Options absent from this set are assumed to be boolean switches.
+var unsupportedTakesValue = map[string]bool{
+	"-p": true, "--print": true, "-P": true, "--history-print": true,
+	"--pretty": true, "-s": true, "--style": true, "--format-options": true,
+	"--response-charset": true, "--response-mime": true,
+	"--session": true, "--session-read-only": true,
+	"--cert": true, "--cert-key": true, "--ssl": true, "--ciphers": true,
+	"-A": true, "--auth-type": true, "--max-headers": true, "--boundary": true,
 }

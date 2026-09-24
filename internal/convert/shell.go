@@ -19,8 +19,8 @@ func Quote(s string) string {
 }
 
 // Command renders an argv as a shell command line. In multiline mode arguments
-// are packed onto the first line while they fit within wrapWidth, then continued
-// one per line with backslashes.
+// are packed onto each line while they fit within wrapWidth; a flag is kept on
+// the same line as its value so wrapping never splits a pair.
 const wrapWidth = 72
 
 func Command(argv []string, multiline bool) string {
@@ -32,19 +32,33 @@ func Command(argv []string, multiline bool) string {
 		return strings.Join(quoted, " ")
 	}
 
-	var b strings.Builder
-	b.WriteString(quoted[0])
-	line := len(quoted[0])
-	rest := quoted[1:]
-	for len(rest) > 0 && line+1+len(rest[0]) <= wrapWidth {
-		b.WriteByte(' ')
-		b.WriteString(rest[0])
-		line += 1 + len(rest[0])
-		rest = rest[1:]
+	// Group each flag with its value. The final argument (the URL) is never
+	// folded into a preceding flag, so value-less flags like --path-as-is do not
+	// appear to swallow it.
+	var units []string
+	for i := 0; i < len(quoted); i++ {
+		u := quoted[i]
+		switch {
+		case strings.HasPrefix(u, "-") && u != "--" && i+1 < len(quoted)-1 && !strings.HasPrefix(quoted[i+1], "-"):
+			u += " " + quoted[i+1]
+			i++
+		}
+		units = append(units, u)
 	}
-	for _, q := range rest {
+
+	var b strings.Builder
+	b.WriteString(units[0])
+	line := len(units[0])
+	for _, u := range units[1:] {
+		if line+1+len(u) <= wrapWidth {
+			b.WriteByte(' ')
+			b.WriteString(u)
+			line += 1 + len(u)
+			continue
+		}
 		b.WriteString(" \\\n  ")
-		b.WriteString(q)
+		b.WriteString(u)
+		line = len(u)
 	}
 	return b.String()
 }

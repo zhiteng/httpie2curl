@@ -28,7 +28,9 @@ consumed as HTTPie's program name and selects the default scheme.
 
 tool options:
   --h2c-curl=PATH          curl binary to emit (default "curl")
-  --h2c-with-defaults      also emit HTTPie's default Accept/Accept-Encoding headers
+  --h2c-with-defaults      reproduce HTTPie's transport defaults: add curl
+                           --compressed, so gzip/deflate responses are decoded
+                           the way HTTPie decodes them
   --h2c-skip-unsupported   warn and continue instead of failing on HTTPie options
                            that curl cannot express
   --h2c-multiline          print the command over multiple lines with backslashes
